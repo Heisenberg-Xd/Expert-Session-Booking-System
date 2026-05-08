@@ -221,15 +221,24 @@ const updateBookingStatus = async (req, res, next) => {
 
 /**
  * Normalise Prisma booking shape → frontend-compatible shape.
- * Maps Prisma enum values (PENDING) to lowercase (pending)
- * so the React UI requires zero changes.
+ *
+ * Prisma returns:  { id, expertId (string), expert (object), status (ENUM), ... }
+ * Frontend expects: { id, expertId (object with .name/.category), status (lowercase), ... }
+ *
+ * We keep expertId as the nested expert object for MyBookings to read
+ * booking.expertId?.name — matching the old Mongoose populate() behaviour.
+ * The raw string expert FK is exposed as expertIdRaw if ever needed.
  */
-const formatBooking = (b) => ({
-  ...b,
-  status: b.status?.toLowerCase(),
-  // Expose expertId as a nested object if expert was included (populate parity)
-  expertId: b.expert ?? b.expertId,
-});
+const formatBooking = (b) => {
+  const { expert, ...rest } = b;
+  return {
+    ...rest,
+    status:   rest.status?.toLowerCase(),
+    // Replace the scalar expertId string with the populated expert object
+    // so MyBookings.jsx `booking.expertId?.name` continues to work unchanged.
+    expertId: expert ?? rest.expertId,
+  };
+};
 
 module.exports = {
   createBooking,

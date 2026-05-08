@@ -162,13 +162,13 @@ export default function ExpertList() {
             )
             : experts.map((expert) => (
               <div
-                key={expert._id}
-                id={`expert-card-${expert._id}`}
+                key={expert.id}
+                id={`expert-card-${expert.id}`}
                 className="expert-card"
-                onClick={() => navigate(`/experts/${expert._id}`)}
+                onClick={() => navigate(`/experts/${expert.id}`)}
                 role="button"
                 tabIndex={0}
-                onKeyDown={(e) => e.key === 'Enter' && navigate(`/experts/${expert._id}`)}
+                onKeyDown={(e) => e.key === 'Enter' && navigate(`/experts/${expert.id}`)}
               >
                 <div className="expert-card-header">
                   <img

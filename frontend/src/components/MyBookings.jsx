@@ -34,7 +34,7 @@ function BookingCard({ booking, onStatusChange, updating }) {
   return (
     <div
       className="card"
-      style={{ marginBottom: '1rem', transition: 'opacity 0.2s', opacity: updating === booking._id ? 0.6 : 1 }}
+      style={{ marginBottom: '1rem', transition: 'opacity 0.2s', opacity: updating === booking.id ? 0.6 : 1 }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem' }}>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
@@ -76,10 +76,10 @@ function BookingCard({ booking, onStatusChange, updating }) {
             <button
               key={action.status}
               className={`btn ${action.style} btn-sm`}
-              disabled={updating === booking._id}
-              onClick={() => onStatusChange(booking._id, action.status)}
+              disabled={updating === booking.id}
+              onClick={() => onStatusChange(booking.id, action.status)}
             >
-              {updating === booking._id ? <span className="spinner" /> : action.label}
+              {updating === booking.id ? <span className="spinner" /> : action.label}
             </button>
           ))}
         </div>
@@ -126,7 +126,7 @@ export default function MyBookings() {
 
     const handleStatusUpdate = ({ bookingId, status, expertName }) => {
       setBookings((prev) =>
-        prev.map((b) => b._id === bookingId ? { ...b, status } : b)
+        prev.map((b) => b.id === bookingId ? { ...b, status } : b)
       );
       toast.success(`Booking with ${expertName || 'expert'} is now ${status}!`);
     };
@@ -149,7 +149,7 @@ export default function MyBookings() {
     try {
       await updateBookingStatus(bookingId, newStatus);
       setBookings((prev) =>
-        prev.map((b) => b._id === bookingId ? { ...b, status: newStatus } : b)
+        prev.map((b) => b.id === bookingId ? { ...b, status: newStatus } : b)
       );
       toast.success(`Status updated to ${newStatus}`);
     } catch (err) {
@@ -255,7 +255,7 @@ export default function MyBookings() {
       {/* ── Booking Cards ── */}
       {!loading && filtered.map((booking) => (
         <BookingCard
-          key={booking._id}
+          key={booking.id}
           booking={booking}
           onStatusChange={handleStatusChange}
           updating={updating}
