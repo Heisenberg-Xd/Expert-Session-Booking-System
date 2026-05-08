@@ -1,5 +1,6 @@
 // 👥 ExpertList Component displays a searchable and filterable grid of available experts.
 // Integrates debounced search, category filtering, and paginated data fetching from the backend.
+// Added feature: real-time debounced search for experts.
 // components/ExpertList.jsx - Paginated expert listing with search & filter
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
