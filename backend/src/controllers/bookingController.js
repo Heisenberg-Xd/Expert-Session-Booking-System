@@ -1,3 +1,5 @@
+// 📅 Booking Controller handles session scheduling and transactional atomicity.
+// Implements Prisma transactions to prevent race conditions during concurrent bookings.
 // controllers/bookingController.js — Prisma transaction-based booking
 const prisma = require('../lib/prisma');
 const { NotFoundError, ConflictError, ValidationError } = require('../middleware/errorHandler');
