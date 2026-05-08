@@ -1,3 +1,5 @@
+// 🏢 Expert Controller handles data retrieval for the expert entities.
+// Manages paginated expert lists, categories, and detailed expert profiles with future slots.
 // controllers/expertController.js — Prisma-powered expert queries
 const prisma = require('../lib/prisma');
 const { NotFoundError } = require('../middleware/errorHandler');
