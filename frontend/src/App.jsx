@@ -1,3 +1,5 @@
+// ⚛️ Main Frontend Application entry point.
+// Manages routing, global navigation, and aesthetic dark mode layout.
 import { Routes, Route, NavLink, useLocation } from 'react-router-dom';
 import ExpertList from './components/ExpertList';
 import ExpertDetail from './components/ExpertDetail';
