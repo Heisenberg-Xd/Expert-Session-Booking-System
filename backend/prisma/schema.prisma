@@ -1,0 +1,105 @@
+// This is your Prisma schema file.
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Expert ──────────────────────────────────────────────────────────────────
+// Core entity. One expert has many AvailabilitySlots and many Bookings.
+model Expert {
+  id          String   @id @default(cuid())
+  name        String
+  category    Category
+  experience  Int
+  rating      Float    @default(4.5)
+  bio         String
+  profileImage String?
+  hourlyRate  Int      @default(100)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  slots    AvailabilitySlot[]
+  bookings Booking[]
+
+  // Indexes
+  @@index([category])
+  @@index([rating])
+}
+
+// ─── AvailabilitySlot ─────────────────────────────────────────────────────────
+// Normalised slots — each row is one bookable time block on a specific date.
+// This replaces the embedded Mongo array and gives us row-level locking.
+model AvailabilitySlot {
+  id        String   @id @default(cuid())
+  expertId  String
+  date      DateTime // stored as midnight UTC — date portion only
+  timeSlot  String   // e.g. "09:00 AM"
+  isBooked  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  // Relations
+  expert  Expert   @relation(fields: [expertId], references: [id], onDelete: Cascade)
+  booking Booking?
+
+  // CRITICAL: Unique constraint replaces Mongo compound index.
+  // Prevents duplicate slots for the same expert/date/time at DB level.
+  @@unique([expertId, date, timeSlot])
+
+  // Indexes for fast lookup
+  @@index([expertId])
+  @@index([expertId, date])
+  @@index([isBooked])
+}
+
+// ─── Booking ──────────────────────────────────────────────────────────────────
+// One booking is linked to exactly one AvailabilitySlot (1-to-1).
+// Also holds denormalised expertId for fast "bookings by expert" queries.
+model Booking {
+  id          String        @id @default(cuid())
+  expertId    String
+  expertName  String        // Denormalised for read performance
+  slotId      String        @unique  // 1-to-1 with AvailabilitySlot
+  userName    String
+  userEmail   String
+  userPhone   String
+  bookingDate DateTime      // mirrors slot.date — for fast date queries
+  timeSlot    String        // mirrors slot.timeSlot — for fast display
+  notes       String?
+  status      BookingStatus @default(PENDING)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Relations
+  expert Expert          @relation(fields: [expertId], references: [id], onDelete: Cascade)
+  slot   AvailabilitySlot @relation(fields: [slotId], references: [id])
+
+  // Indexes
+  @@index([userEmail])
+  @@index([expertId])
+  @@index([bookingDate])
+  @@index([status])
+  @@index([expertId, bookingDate])
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+enum Category {
+  Technology
+  Business
+  Health
+  Education
+  Design
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}

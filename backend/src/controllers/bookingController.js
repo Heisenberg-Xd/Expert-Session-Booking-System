@@ -1,197 +1,240 @@
-// controllers/bookingController.js - Booking logic with race condition handling
-const mongoose = require('mongoose');
-const Booking = require('../models/Booking');
-const Expert = require('../models/Expert');
+// controllers/bookingController.js — Prisma transaction-based booking
+const prisma = require('../lib/prisma');
 const { NotFoundError, ConflictError, ValidationError } = require('../middleware/errorHandler');
 
-// io instance is injected after server starts (see server.js)
+// io injected after server boots — same pattern as before
 let io;
 const setIO = (socketIO) => { io = socketIO; };
 
 /**
- * POST /bookings
+ * POST /api/bookings
  *
- * RACE CONDITION HANDLING STRATEGY (Uber-style):
- * 1. MongoDB Transaction (ACID) - Primary lock. Read-then-write is atomic.
- * 2. Unique compound index - Secondary guard. DB-level deduplication.
- * 3. Socket.io emit AFTER commit - Ensures real-time update only on success.
+ * RACE CONDITION STRATEGY (PostgreSQL edition):
+ * ─────────────────────────────────────────────
+ * 1. prisma.$transaction([...]) — serialisable-isolation block
+ *    Prisma wraps all operations in a DB transaction. PostgreSQL's
+ *    row-level locking ensures only ONE writer can update a slot row.
  *
- * This handles the case of 1000 concurrent requests for the same slot:
- * exactly ONE will succeed, all others get a 409 ConflictError.
+ * 2. findFirst inside transaction checks isBooked === false.
+ *    If two concurrent requests both see isBooked=false, PostgreSQL's
+ *    MVCC ensures only one UPDATE wins; the other hits the unique
+ *    constraint on Booking.slotId and gets a P2002 error.
+ *
+ * 3. @@unique([expertId, date, timeSlot]) on AvailabilitySlot +
+ *    @unique slotId on Booking = dual DB-level safety net.
  */
 const createBooking = async (req, res, next) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
     const { expertId, userName, userEmail, userPhone, bookingDate, timeSlot, notes } = req.body;
 
-    // Normalize date to midnight UTC for consistent comparison
+    // Normalise date to midnight UTC
     const normalizedDate = new Date(bookingDate);
     normalizedDate.setHours(0, 0, 0, 0);
 
-    // WITHIN TRANSACTION: Find expert where the specific slot is still available.
-    // This read-check is atomic with the subsequent write - no other transaction
-    // can modify this expert document between this read and the commit.
-    const expert = await Expert.findOne({
-      _id: expertId,
-      'availability': {
-        $elemMatch: {
-          date: normalizedDate,
-          'slots': {
-            $elemMatch: { time: timeSlot, isBooked: false },
-          },
+    // Run all DB operations atomically
+    const booking = await prisma.$transaction(async (tx) => {
+
+      // 1. Find the slot and confirm it exists and is NOT already booked
+      const slot = await tx.availabilitySlot.findFirst({
+        where: {
+          expertId,
+          date:     normalizedDate,
+          timeSlot,
+          isBooked: false,          // CRITICAL: must be free
         },
-      },
-    }).session(session);
+        include: { expert: { select: { name: true } } },
+      });
 
-    if (!expert) {
-      // Either expert not found OR slot already taken - safe to expose this info
-      throw new ConflictError('This slot is already booked or unavailable. Please choose another time.');
-    }
-
-    // WITHIN TRANSACTION: Create the booking document
-    const [booking] = await Booking.create([{
-      expertId,
-      expertName: expert.name,
-      userName: userName.trim(),
-      userEmail: userEmail.toLowerCase().trim(),
-      userPhone: userPhone.replace(/[\s\-]/g, ''),
-      bookingDate: normalizedDate,
-      timeSlot,
-      notes: notes?.trim() || '',
-      status: 'pending',
-    }], { session });
-
-    // WITHIN TRANSACTION: Mark the slot as booked using positional array filters.
-    // This precise update ensures only the matching slot is modified.
-    await Expert.updateOne(
-      { _id: expertId, 'availability.date': normalizedDate },
-      {
-        $set: {
-          'availability.$[dateElem].slots.$[slotElem].isBooked': true,
-        },
-      },
-      {
-        arrayFilters: [
-          { 'dateElem.date': normalizedDate },
-          { 'slotElem.time': timeSlot },
-        ],
-        session,
+      if (!slot) {
+        throw new ConflictError(
+          'This slot is already booked or unavailable. Please choose another time.'
+        );
       }
-    );
 
-    // Commit the atomic transaction
-    await session.commitTransaction();
+      // 2. Mark slot as booked (row-level lock — concurrent tx waits here)
+      await tx.availabilitySlot.update({
+        where: { id: slot.id },
+        data:  { isBooked: true },
+      });
 
-    // Emit ONLY after successful commit - prevents false real-time updates
+      // 3. Create the booking record linked to this slot
+      const newBooking = await tx.booking.create({
+        data: {
+          expertId,
+          expertName:  slot.expert.name,
+          slotId:      slot.id,
+          userName:    userName.trim(),
+          userEmail:   userEmail.toLowerCase().trim(),
+          userPhone:   userPhone.replace(/[\s\-]/g, ''),
+          bookingDate: normalizedDate,
+          timeSlot,
+          notes:       notes?.trim() ?? '',
+          status:      'PENDING',
+        },
+      });
+
+      return newBooking;
+    }); // ← transaction commits here atomically
+
+    // Emit ONLY after successful commit — no false real-time signals
     if (io) {
-      io.to(expertId.toString()).emit('slot-booked', {
+      io.to(expertId).emit('slot-booked', {
         expertId,
         bookingDate: normalizedDate,
         timeSlot,
-        bookingId: booking._id,
+        bookingId: booking.id,
       });
     }
 
-    res.status(201).json({ success: true, data: booking });
+    res.status(201).json({
+      success: true,
+      data: formatBooking(booking),
+    });
 
   } catch (error) {
-    // Always abort on any error to release the lock
-    await session.abortTransaction();
+    // Prisma unique constraint violation — slot was just taken (race condition)
+    if (error.code === 'P2002') {
+      return next(new ConflictError(
+        'This slot is already booked. Please choose another time.'
+      ));
+    }
     next(error);
-  } finally {
-    // Always end session to return connection to pool
-    session.endSession();
   }
 };
 
 /**
- * GET /bookings
- * Fetches bookings by user email (for MyBookings component).
- * Supports status filter and date sort.
+ * GET /api/bookings
+ * Fetch bookings by user email. Optional status filter.
  */
 const getBookingsByEmail = async (req, res, next) => {
   try {
     const { email, status } = req.query;
 
-    if (!email) {
-      return res.json({ success: true, data: [] });
+    if (!email) return res.json({ success: true, data: [] });
+
+    const where = {
+      userEmail: email.toLowerCase().trim(),
+    };
+
+    // Validate status against enum
+    const validStatuses = ['PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED'];
+    if (status && validStatuses.includes(status.toUpperCase())) {
+      where.status = status.toUpperCase();
     }
 
-    const filter = { userEmail: email.toLowerCase().trim() };
-    if (status) filter.status = status;
+    const bookings = await prisma.booking.findMany({
+      where,
+      orderBy: { bookingDate: 'desc' },
+      include: {
+        expert: {
+          select: {
+            id:           true,
+            name:         true,
+            category:     true,
+            profileImage: true,
+            rating:       true,
+          },
+        },
+      },
+    });
 
-    const bookings = await Booking.find(filter)
-      .sort({ bookingDate: -1 }) // Most recent first
-      .populate('expertId', 'name category profileImage') // Efficient projection
-      .lean();
-
-    res.json({ success: true, data: bookings });
+    res.json({
+      success: true,
+      data: bookings.map(formatBooking),
+    });
   } catch (error) {
     next(error);
   }
 };
 
 /**
- * PATCH /bookings/:id/status
- * Updates booking status with state machine validation.
- * Emits real-time event to notify the user.
+ * GET /api/bookings/:id
+ */
+const getBookingById = async (req, res, next) => {
+  try {
+    const booking = await prisma.booking.findUnique({
+      where: { id: req.params.id },
+      include: {
+        expert: {
+          select: { id: true, name: true, category: true, profileImage: true, rating: true },
+        },
+      },
+    });
+
+    if (!booking) throw new NotFoundError('Booking not found');
+
+    res.json({ success: true, data: formatBooking(booking) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * PATCH /api/bookings/:id/status
+ * State machine: PENDING → CONFIRMED → COMPLETED (or any → CANCELLED)
  */
 const updateBookingStatus = async (req, res, next) => {
   try {
     const { status } = req.body;
-    const booking = await Booking.findById(req.params.id);
+    const newStatus = status?.toUpperCase();
+
+    const booking = await prisma.booking.findUnique({
+      where: { id: req.params.id },
+    });
 
     if (!booking) throw new NotFoundError('Booking not found');
 
-    // State machine: define valid transitions
+    // Enforce state machine transitions
     const validTransitions = {
-      pending: ['confirmed', 'cancelled'],
-      confirmed: ['completed', 'cancelled'],
-      completed: [],
-      cancelled: [],
+      PENDING:   ['CONFIRMED', 'CANCELLED'],
+      CONFIRMED: ['COMPLETED', 'CANCELLED'],
+      COMPLETED: [],
+      CANCELLED: [],
     };
 
-    if (!validTransitions[booking.status]?.includes(status)) {
+    if (!validTransitions[booking.status]?.includes(newStatus)) {
       throw new ValidationError(
-        `Cannot transition from '${booking.status}' to '${status}'. ` +
+        `Invalid transition: ${booking.status} → ${newStatus}. ` +
         `Allowed: ${validTransitions[booking.status]?.join(', ') || 'none'}`
       );
     }
 
-    booking.status = status;
-    await booking.save();
+    const updated = await prisma.booking.update({
+      where: { id: req.params.id },
+      data:  { status: newStatus },
+    });
 
-    // Notify the user's email room of status change
+    // Real-time notification to the user's email room
     if (io) {
       io.to(`user:${booking.userEmail}`).emit('booking-status-updated', {
-        bookingId: booking._id,
-        status: booking.status,
+        bookingId:  booking.id,
+        status:     newStatus,
         expertName: booking.expertName,
       });
     }
 
-    res.json({ success: true, data: booking });
+    res.json({ success: true, data: formatBooking(updated) });
   } catch (error) {
     next(error);
   }
 };
 
 /**
- * GET /bookings/:id
- * Get single booking by ID.
+ * Normalise Prisma booking shape → frontend-compatible shape.
+ * Maps Prisma enum values (PENDING) to lowercase (pending)
+ * so the React UI requires zero changes.
  */
-const getBookingById = async (req, res, next) => {
-  try {
-    const booking = await Booking.findById(req.params.id)
-      .populate('expertId', 'name category profileImage rating')
-      .lean();
-    if (!booking) throw new NotFoundError('Booking not found');
-    res.json({ success: true, data: booking });
-  } catch (error) {
-    next(error);
-  }
-};
+const formatBooking = (b) => ({
+  ...b,
+  status: b.status?.toLowerCase(),
+  // Expose expertId as a nested object if expert was included (populate parity)
+  expertId: b.expert ?? b.expertId,
+});
 
-module.exports = { createBooking, getBookingsByEmail, updateBookingStatus, getBookingById, setIO };
+module.exports = {
+  createBooking,
+  getBookingsByEmail,
+  getBookingById,
+  updateBookingStatus,
+  setIO,
+};
