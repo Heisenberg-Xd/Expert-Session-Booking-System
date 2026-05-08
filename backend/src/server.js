@@ -1,4 +1,6 @@
 // server.js — Express + Socket.io entry point (Mongoose fully removed)
+// 🚀 Main entry point for the ExpertConnect backend server.
+// Configures Express middleware, Socket.io real-time communication, and Prisma connection.
 require('dotenv').config();
 const express  = require('express');
 const http     = require('http');
