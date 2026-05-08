@@ -1,3 +1,5 @@
+// 🗃️ MyBookings Component allows users to track and manage their session bookings.
+// Connects to Socket.io for real-time status updates and provides status management actions.
 // components/MyBookings.jsx - Personal booking list with real-time status updates
 import { useState, useEffect, useCallback } from 'react';
 import { fetchBookingsByEmail, updateBookingStatus } from '../services/api';
