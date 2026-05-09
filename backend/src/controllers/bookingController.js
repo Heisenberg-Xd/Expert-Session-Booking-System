@@ -29,9 +29,25 @@ const createBooking = async (req, res, next) => {
   try {
     const { expertId, userName, userEmail, userPhone, bookingDate, timeSlot, notes } = req.body;
 
-    // Normalise date to midnight UTC
-    const normalizedDate = new Date(bookingDate);
-    normalizedDate.setHours(0, 0, 0, 0);
+    // ─── DEBUG LOGGING ─────────────────────────────────────────────────────────
+    console.log('\n📋 BOOKING REQUEST RECEIVED:');
+    console.log('  expertId    :', expertId);
+    console.log('  bookingDate :', bookingDate, '(raw from frontend)');
+    console.log('  timeSlot    :', JSON.stringify(timeSlot), '(raw)');
+    console.log('  userName    :', userName);
+    console.log('  userEmail   :', userEmail);
+    // ───────────────────────────────────────────────────────────────────────────
+
+    // CRITICAL FIX: Parse date string as explicit UTC midnight.
+    // Using `new Date(dateString)` where dateString is "YYYY-MM-DD" always
+    // resolves to midnight UTC per the ISO 8601 spec — this is correct.
+    // The old approach: new Date(bookingDate).setHours(0,0,0,0) was dangerous
+    // because setHours() operates in LOCAL server timezone, causing a mismatch
+    // vs. the DB which stores seed slots at midnight UTC.
+    const [year, month, day] = bookingDate.split('T')[0].split('-').map(Number);
+    const normalizedDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+
+    console.log('  normalizedDate (UTC):', normalizedDate.toISOString());
 
     // Run all DB operations atomically
     const booking = await prisma.$transaction(async (tx) => {
@@ -47,7 +63,15 @@ const createBooking = async (req, res, next) => {
         include: { expert: { select: { name: true } } },
       });
 
+      console.log('  slot found:', slot ? `✅ ID=${slot.id}` : '❌ NOT FOUND (conflict or bad date/time)');
+
       if (!slot) {
+        // Extra diagnostic: check if slot exists at all (ignoring isBooked)
+        const anySlot = await tx.availabilitySlot.findFirst({
+          where: { expertId, date: normalizedDate, timeSlot },
+        });
+        console.log('  slot exists (any status):', anySlot ? `isBooked=${anySlot.isBooked}` : 'DOES NOT EXIST IN DB');
+
         throw new ConflictError(
           'This slot is already booked or unavailable. Please choose another time.'
         );
@@ -77,6 +101,8 @@ const createBooking = async (req, res, next) => {
 
       return newBooking;
     }); // ← transaction commits here atomically
+
+    console.log(`  ✅ BOOKING CREATED: ID=${booking.id}, token=${booking.managementToken}`);
 
     // Emit ONLY after successful commit — no false real-time signals
     if (io) {
