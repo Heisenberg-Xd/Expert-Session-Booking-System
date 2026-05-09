@@ -64,6 +64,9 @@ const getExperts = async (req, res, next) => {
           bio:          true,
           profileImage: true,
           hourlyRate:   true,
+          verified:     true,
+          company:      true,
+          role:         true,
           createdAt:    true,
         },
       }),
@@ -161,4 +164,39 @@ const getExpertById = async (req, res, next) => {
   }
 };
 
-module.exports = { getExperts, getExpertById, getCategories };
+/**
+ * POST /api/experts/apply
+ * Submits a new application to become an expert.
+ */
+const applyExpert = async (req, res, next) => {
+  try {
+    const { name, email, linkedIn, company, role, category, experience, hourlyRate, portfolio, bio, reason } = req.body;
+
+    const application = await prisma.expertApplication.create({
+      data: {
+        name,
+        email,
+        linkedIn,
+        company,
+        role,
+        category,
+        experience: parseInt(experience),
+        hourlyRate: parseInt(hourlyRate),
+        portfolio,
+        bio,
+        reason,
+        status: 'PENDING',
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      data: application,
+      message: 'Application received successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { getExperts, getExpertById, getCategories, applyExpert };
