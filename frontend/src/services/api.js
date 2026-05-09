@@ -1,11 +1,10 @@
 // services/api.js - Centralized Axios instance
 // Never hardcode URLs - always use environment variables for deployment portability
 import axios from 'axios';
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { API_URL } from '../config/env';
 
 const api = axios.create({
-  baseURL: `${API_BASE}/api`,
+  baseURL: `${API_URL}/api`,
   timeout: 10000,
   headers: { 'Content-Type': 'application/json' },
 });
