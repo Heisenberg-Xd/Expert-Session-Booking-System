@@ -111,8 +111,10 @@ const getCategories = async (req, res, next) => {
  */
 const getExpertById = async (req, res, next) => {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Use UTC midnight so it matches how seed slots are stored in Postgres.
+    // setHours() runs in local timezone and would break on non-UTC servers.
+    const now = new Date();
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
 
     const expert = await prisma.expert.findUnique({
       where: { id: req.params.id },
@@ -141,9 +143,11 @@ const getExpertById = async (req, res, next) => {
     // structure so the frontend ExpertDetail component needs zero changes.
     const availabilityMap = {};
     for (const slot of expert.slots) {
-      const dateKey = slot.date.toISOString();
+      // Use YYYY-MM-DD date key (UTC) — ensures clean round-trip when frontend
+      // sends this date back in the booking request.
+      const dateKey = slot.date.toISOString().split('T')[0];
       if (!availabilityMap[dateKey]) {
-        availabilityMap[dateKey] = { date: slot.date, slots: [] };
+        availabilityMap[dateKey] = { date: dateKey, slots: [] };
       }
       availabilityMap[dateKey].slots.push({
         id:       slot.id,
