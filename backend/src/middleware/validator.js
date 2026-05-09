@@ -24,11 +24,12 @@ const validateBooking = (req, res, next) => {
   if (!bookingDate || isNaN(new Date(bookingDate)))
     return next(new ValidationError('Valid booking date is required'));
 
-  const bookDate = new Date(bookingDate);
-  bookDate.setHours(0, 0, 0, 0);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  if (bookDate < today)
+  // Past-date check — use UTC midnight on both sides to avoid timezone drift
+  const [y, m, d] = bookingDate.split('T')[0].split('-').map(Number);
+  const bookDateUTC = new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0));
+  const now = new Date();
+  const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+  if (bookDateUTC < todayUTC)
     return next(new ValidationError('Booking date cannot be in the past'));
 
   if (!timeSlot || typeof timeSlot !== 'string' || timeSlot.trim().length === 0)
