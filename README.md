@@ -1,6 +1,8 @@
 
 # 📅 Expert Session Booking System
 
+**Live Production URL:** [https://expertbooking-bay.vercel.app/](https://expertbooking-bay.vercel.app/)
+
 ## Overview
 
 This project is a production-grade, real-time Expert Session Booking System. It features a robust backend built with Node.js, Express, and PostgreSQL (via Prisma ORM) and also ensuring high concurrency support and race-condition safety. The frontend is a modern React application utilizing Vite for performance and Socket.io for real-time availability updates.
