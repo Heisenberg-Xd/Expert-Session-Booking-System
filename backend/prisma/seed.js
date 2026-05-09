@@ -77,13 +77,21 @@ const TIME_SLOTS = [
 /**
  * Build AvailabilitySlot rows for a given expertId.
  * Generates 7 days × 9 slots = 63 rows per expert.
+ * CRITICAL: Always uses Date.UTC to produce midnight UTC timestamps.
+ * Using setHours(0,0,0,0) stores LOCAL midnight — which is wrong on non-UTC servers.
  */
 function buildSlots(expertId) {
   const slots = [];
+  const now = new Date();
+
   for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
-    const date = new Date();
-    date.setDate(date.getDate() + dayOffset);
-    date.setHours(0, 0, 0, 0);
+    // Explicitly construct UTC midnight — timezone-proof
+    const date = new Date(Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() + dayOffset,
+      0, 0, 0, 0
+    ));
 
     for (const timeSlot of TIME_SLOTS) {
       slots.push({ expertId, date, timeSlot, isBooked: false });
@@ -118,9 +126,11 @@ async function main() {
   console.log(`\n✅ ${createdExperts.length} experts with ${createdExperts.length * 63} slots created`);
 
   // ── Create 5 sample bookings with varied statuses
-  const today    = new Date(); today.setHours(0, 0, 0, 0);
-  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
-  const day2     = new Date(today); day2.setDate(today.getDate() + 2);
+  // CRITICAL: All sample booking dates must also be UTC midnight to match slots.
+  const now2 = new Date();
+  const today    = new Date(Date.UTC(now2.getUTCFullYear(), now2.getUTCMonth(), now2.getUTCDate(), 0, 0, 0, 0));
+  const tomorrow = new Date(Date.UTC(now2.getUTCFullYear(), now2.getUTCMonth(), now2.getUTCDate() + 1, 0, 0, 0, 0));
+  const day2     = new Date(Date.UTC(now2.getUTCFullYear(), now2.getUTCMonth(), now2.getUTCDate() + 2, 0, 0, 0, 0));
 
   // Helper: find a specific slot and mark it booked
   const bookSlot = async (expertIdx, date, timeSlot, bookingData) => {
