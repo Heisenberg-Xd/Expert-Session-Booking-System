@@ -10,6 +10,7 @@ const cors     = require('cors');
 const prisma        = require('./lib/prisma');
 const expertRoutes  = require('./routes/expertRoutes');
 const bookingRoutes = require('./routes/bookingRoutes');
+const debugRoutes   = require('./routes/debugRoutes');   // TEMP: remove after diagnostics
 const { globalErrorHandler } = require('./middleware/errorHandler');
 const { setIO } = require('./controllers/bookingController');
 
@@ -77,6 +78,7 @@ app.get('/health', async (req, res) => {
 // ─── Routes ───────────────────────────────────────────────────────────────────
 app.use('/api/experts',  expertRoutes);
 app.use('/api/bookings', bookingRoutes);
+app.use('/api/debug',    debugRoutes);   // TEMP diagnostic route
 
 // 404 fallback
 app.use('*', (req, res) => {
