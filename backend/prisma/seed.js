@@ -9,52 +9,62 @@ const EXPERTS = [
   {
     name: 'Arjun Sharma', category: 'Technology', experience: 12, rating: 4.9, hourlyRate: 250,
     bio: 'Senior Staff Engineer at Google. Expert in distributed systems, Kubernetes, and Go. Former tech lead at Flipkart.',
-    profileImage: 'https://api.dicebear.com/8.x/avataaars/svg?seed=Arjun',
+    profileImage: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=256&h=256&auto=format&fit=crop',
+    verified: true, sessionsCompleted: 142, responseTime: 'Replies within 2 hours', repeatClientPct: 85, company: 'Google', role: 'Senior Staff Engineer'
   },
   {
     name: 'Priya Mehta', category: 'Business', experience: 8, rating: 4.8, hourlyRate: 300,
     bio: 'Ex-McKinsey consultant and startup founder. Helped 30+ startups raise Series A funding.',
-    profileImage: 'https://api.dicebear.com/8.x/avataaars/svg?seed=Priya',
+    profileImage: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=256&h=256&auto=format&fit=crop',
+    verified: true, sessionsCompleted: 89, responseTime: 'Replies within 1 hour', repeatClientPct: 92, company: 'McKinsey (Former)', role: 'Startup Advisor'
   },
   {
     name: 'Rahul Gupta', category: 'Technology', experience: 10, rating: 4.7, hourlyRate: 220,
     bio: 'ML Engineer at Meta. Expert in LLMs, PyTorch, and production AI systems. PhD from IIT Delhi.',
-    profileImage: 'https://api.dicebear.com/8.x/avataaars/svg?seed=Rahul',
+    profileImage: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?q=80&w=256&h=256&auto=format&fit=crop',
+    verified: true, sessionsCompleted: 215, responseTime: 'Replies within 4 hours', repeatClientPct: 78, company: 'Meta', role: 'Senior ML Engineer'
   },
   {
     name: 'Dr. Anjali Singh', category: 'Health', experience: 15, rating: 4.9, hourlyRate: 180,
     bio: 'Integrative medicine physician and certified life coach. Specialises in stress management and holistic wellness.',
-    profileImage: 'https://api.dicebear.com/8.x/avataaars/svg?seed=Anjali',
+    profileImage: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?q=80&w=256&h=256&auto=format&fit=crop',
+    verified: true, sessionsCompleted: 340, responseTime: 'Replies within 1 day', repeatClientPct: 95, company: 'Holistic Health', role: 'Integrative Physician'
   },
   {
     name: 'Vikram Nair', category: 'Design', experience: 9, rating: 4.6, hourlyRate: 200,
     bio: 'Principal UX Designer at Adobe. Previously at Apple. Expert in design systems and accessibility.',
-    profileImage: 'https://api.dicebear.com/8.x/avataaars/svg?seed=Vikram',
+    profileImage: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=256&h=256&auto=format&fit=crop',
+    verified: true, sessionsCompleted: 67, responseTime: 'Replies within 1 hour', repeatClientPct: 80, company: 'Adobe', role: 'Principal UX Designer'
   },
   {
     name: 'Sneha Patel', category: 'Education', experience: 7, rating: 4.8, hourlyRate: 150,
     bio: 'EdTech founder and curriculum designer. Has trained 10,000+ students in data science.',
-    profileImage: 'https://api.dicebear.com/8.x/avataaars/svg?seed=Sneha',
+    profileImage: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?q=80&w=256&h=256&auto=format&fit=crop',
+    verified: true, sessionsCompleted: 112, responseTime: 'Replies within 2 hours', repeatClientPct: 88, company: 'DataCamp', role: 'Curriculum Director'
   },
   {
     name: 'Karthik Iyer', category: 'Technology', experience: 6, rating: 4.5, hourlyRate: 175,
     bio: 'Full-stack engineer specialising in React, Node.js, and AWS. Open source contributor with 5k GitHub stars.',
-    profileImage: 'https://api.dicebear.com/8.x/avataaars/svg?seed=Karthik',
+    profileImage: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=256&h=256&auto=format&fit=crop',
+    verified: true, sessionsCompleted: 45, responseTime: 'Replies within 3 hours', repeatClientPct: 75, company: 'Stripe', role: 'Software Engineer'
   },
   {
     name: 'Neha Verma', category: 'Business', experience: 11, rating: 4.7, hourlyRate: 280,
     bio: 'Product leader and former VP at Razorpay. Expert in fintech and go-to-market strategy.',
-    profileImage: 'https://api.dicebear.com/8.x/avataaars/svg?seed=Neha',
+    profileImage: 'https://images.unsplash.com/photo-1598550874175-4d0ef436c909?q=80&w=256&h=256&auto=format&fit=crop',
+    verified: true, sessionsCompleted: 198, responseTime: 'Replies within 1 hour', repeatClientPct: 91, company: 'Razorpay', role: 'VP of Product (Former)'
   },
   {
     name: 'Aditya Kumar', category: 'Design', experience: 5, rating: 4.4, hourlyRate: 160,
     bio: 'Brand identity designer and creative director. Works with Fortune 500 companies on visual identity systems.',
-    profileImage: 'https://api.dicebear.com/8.x/avataaars/svg?seed=Aditya',
+    profileImage: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=256&h=256&auto=format&fit=crop',
+    verified: true, sessionsCompleted: 34, responseTime: 'Replies within 4 hours', repeatClientPct: 70, company: 'Pentagram', role: 'Creative Director'
   },
   {
     name: 'Dr. Meera Krishnan', category: 'Education', experience: 13, rating: 4.9, hourlyRate: 200,
     bio: 'Professor of CS and AI researcher. Author of 3 textbooks on algorithms and machine learning.',
-    profileImage: 'https://api.dicebear.com/8.x/avataaars/svg?seed=Meera',
+    profileImage: 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?q=80&w=256&h=256&auto=format&fit=crop',
+    verified: true, sessionsCompleted: 280, responseTime: 'Replies within 2 days', repeatClientPct: 96, company: 'Stanford Univ.', role: 'CS Professor'
   },
 ];
 
