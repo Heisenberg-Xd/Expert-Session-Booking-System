@@ -21,6 +21,15 @@ model Expert {
   bio         String
   profileImage String?
   hourlyRate  Int      @default(100)
+  
+  // Trust Indicators
+  verified          Boolean @default(true)
+  sessionsCompleted Int     @default(0)
+  responseTime      String  @default("Usually replies within 1 hour")
+  repeatClientPct   Int     @default(0)
+  company           String?
+  role              String?
+  
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -72,9 +81,10 @@ model Booking {
   bookingDate DateTime      // mirrors slot.date — for fast date queries
   timeSlot    String        // mirrors slot.timeSlot — for fast display
   notes       String?
-  status      BookingStatus @default(PENDING)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  status          BookingStatus @default(PENDING)
+  managementToken String        @unique @default(cuid())
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   // Relations
   expert Expert          @relation(fields: [expertId], references: [id], onDelete: Cascade)
@@ -86,6 +96,29 @@ model Booking {
   @@index([bookingDate])
   @@index([status])
   @@index([expertId, bookingDate])
+}
+
+// ─── ExpertApplication ────────────────────────────────────────────────────────
+// Form submissions for "Become an Expert".
+model ExpertApplication {
+  id         String            @id @default(cuid())
+  name       String
+  email      String
+  linkedIn   String
+  company    String
+  role       String
+  category   Category
+  experience Int
+  hourlyRate Int
+  portfolio  String?
+  bio        String            @db.Text
+  reason     String            @db.Text
+  status     ApplicationStatus @default(PENDING)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  @@index([status])
+  @@index([email])
 }
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
@@ -102,4 +135,10 @@ enum BookingStatus {
   CONFIRMED
   COMPLETED
   CANCELLED
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
