@@ -2,14 +2,13 @@
 // A singleton ensures only ONE connection is made per app lifecycle,
 // preventing duplicate event listeners on re-renders.
 import { io } from 'socket.io-client';
-
-const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { API_URL } from '../config/env';
 
 let socket = null;
 
 export const getSocket = () => {
   if (!socket) {
-    socket = io(SOCKET_URL, {
+    socket = io(API_URL, {
       autoConnect: false,       // Connect only when needed (lazy connection)
       reconnection: true,
       reconnectionAttempts: 5,
