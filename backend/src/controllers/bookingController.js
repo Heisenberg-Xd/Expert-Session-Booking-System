@@ -47,7 +47,12 @@ const createBooking = async (req, res, next) => {
     const [year, month, day] = bookingDate.split('T')[0].split('-').map(Number);
     const normalizedDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
 
+    // Canonicalize timeSlot: strip whitespace, normalize internal space
+    // e.g. "10:00  AM", " 10:00 AM" → "10:00 AM"
+    const canonicalTimeSlot = timeSlot.trim().replace(/\s+/g, ' ');
+
     console.log('  normalizedDate (UTC):', normalizedDate.toISOString());
+    console.log('  canonicalTimeSlot   :', JSON.stringify(canonicalTimeSlot));
 
     // Run all DB operations atomically
     const booking = await prisma.$transaction(async (tx) => {
@@ -57,7 +62,7 @@ const createBooking = async (req, res, next) => {
         where: {
           expertId,
           date:     normalizedDate,
-          timeSlot,
+          timeSlot: canonicalTimeSlot,
           isBooked: false,          // CRITICAL: must be free
         },
         include: { expert: { select: { name: true } } },
@@ -68,9 +73,10 @@ const createBooking = async (req, res, next) => {
       if (!slot) {
         // Extra diagnostic: check if slot exists at all (ignoring isBooked)
         const anySlot = await tx.availabilitySlot.findFirst({
-          where: { expertId, date: normalizedDate, timeSlot },
+          where: { expertId, date: normalizedDate, timeSlot: canonicalTimeSlot },
         });
-        console.log('  slot exists (any status):', anySlot ? `isBooked=${anySlot.isBooked}` : 'DOES NOT EXIST IN DB');
+        console.log('  slot exists (any status):', anySlot ? `isBooked=${anySlot.isBooked}, stored date=${anySlot.date.toISOString()}` : 'DOES NOT EXIST IN DB AT ALL');
+        console.log('  queried date:', normalizedDate.toISOString(), '| queried timeSlot:', JSON.stringify(canonicalTimeSlot));
 
         throw new ConflictError(
           'This slot is already booked or unavailable. Please choose another time.'
@@ -93,7 +99,7 @@ const createBooking = async (req, res, next) => {
           userEmail:   userEmail.toLowerCase().trim(),
           userPhone:   userPhone.replace(/[\s\-]/g, ''),
           bookingDate: normalizedDate,
-          timeSlot,
+          timeSlot:    canonicalTimeSlot,
           notes:       notes?.trim() ?? '',
           status:      'PENDING',
         },
@@ -109,7 +115,7 @@ const createBooking = async (req, res, next) => {
       io.to(expertId).emit('slot-booked', {
         expertId,
         bookingDate: normalizedDate,
-        timeSlot,
+        timeSlot:    canonicalTimeSlot,
         bookingId: booking.id,
       });
     }
