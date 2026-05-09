@@ -222,16 +222,11 @@ export default function BookingForm() {
       });
       setSuccess(res.data);
     } catch (err) {
-      if (err.message.includes('already booked') || err.message.includes('Slot')) {
-        toast.error('Slot just got booked! Please choose another time.', {
-          style: { background: '#171717', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }
-        });
-        navigate(`/experts/${id}`);
-      } else {
-        toast.error(err.message, {
-          style: { background: '#171717', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }
-        });
-      }
+      // Show the error message but STAY on the booking page.
+      // Do NOT navigate on failure — user should select a new slot themselves.
+      toast.error(err.message || 'Booking failed. Please try again.', {
+        style: { background: '#171717', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }
+      });
     } finally {
       setLoading(false);
     }
