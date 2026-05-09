@@ -88,6 +88,18 @@ const createBooking = async (req, res, next) => {
       });
     }
 
+    // SIMULATED EMAIL DISPATCH
+    // In production, this would use SendGrid/AWS SES to email the user
+    console.log('\n======================================================');
+    console.log(`📧 SIMULATED MAGIC LINK EMAIL DISPATCHED`);
+    console.log(`To: ${booking.userEmail}`);
+    console.log(`Subject: Your Session with ${booking.expertName} is Confirmed`);
+    console.log(`\nHello ${booking.userName},`);
+    console.log(`Your session on ${bookingDate} at ${timeSlot} is confirmed.`);
+    console.log(`\nSecurely manage your booking here:`);
+    console.log(`http://localhost:5173/manage/${booking.managementToken}`);
+    console.log('======================================================\n');
+
     res.status(201).json({
       success: true,
       data: formatBooking(booking),
@@ -105,28 +117,15 @@ const createBooking = async (req, res, next) => {
 };
 
 /**
- * GET /api/bookings
- * Fetch bookings by user email. Optional status filter.
+ * GET /api/bookings/manage/:token
+ * Fetch a specific booking using its secure management token.
  */
-const getBookingsByEmail = async (req, res, next) => {
+const getBookingByToken = async (req, res, next) => {
   try {
-    const { email, status } = req.query;
+    const { token } = req.params;
 
-    if (!email) return res.json({ success: true, data: [] });
-
-    const where = {
-      userEmail: email.toLowerCase().trim(),
-    };
-
-    // Validate status against enum
-    const validStatuses = ['PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED'];
-    if (status && validStatuses.includes(status.toUpperCase())) {
-      where.status = status.toUpperCase();
-    }
-
-    const bookings = await prisma.booking.findMany({
-      where,
-      orderBy: { bookingDate: 'desc' },
+    const booking = await prisma.booking.findUnique({
+      where: { managementToken: token },
       include: {
         expert: {
           select: {
@@ -140,9 +139,11 @@ const getBookingsByEmail = async (req, res, next) => {
       },
     });
 
+    if (!booking) throw new NotFoundError('Secure booking link is invalid or expired.');
+
     res.json({
       success: true,
-      data: bookings.map(formatBooking),
+      data: formatBooking(booking),
     });
   } catch (error) {
     next(error);
@@ -172,16 +173,18 @@ const getBookingById = async (req, res, next) => {
 };
 
 /**
- * PATCH /api/bookings/:id/status
+ * PATCH /api/bookings/manage/:token/status
  * State machine: PENDING → CONFIRMED → COMPLETED (or any → CANCELLED)
+ * Now requires the secure management token to perform the action.
  */
 const updateBookingStatus = async (req, res, next) => {
   try {
     const { status } = req.body;
+    const { token } = req.params;
     const newStatus = status?.toUpperCase();
 
     const booking = await prisma.booking.findUnique({
-      where: { id: req.params.id },
+      where: { managementToken: token },
     });
 
     if (!booking) throw new NotFoundError('Booking not found');
@@ -202,7 +205,7 @@ const updateBookingStatus = async (req, res, next) => {
     }
 
     const updated = await prisma.booking.update({
-      where: { id: req.params.id },
+      where: { managementToken: token },
       data:  { status: newStatus },
     });
 
@@ -244,7 +247,7 @@ const formatBooking = (b) => {
 
 module.exports = {
   createBooking,
-  getBookingsByEmail,
+  getBookingByToken,
   getBookingById,
   updateBookingStatus,
   setIO,

@@ -1,43 +1,131 @@
 // components/BookingForm.jsx - Session booking form with validation
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowLeft, Calendar as CalendarIcon, Clock, User, Mail, Tag, CheckCircle2, ChevronRight } from 'lucide-react';
 import { createBooking } from '../services/api';
 import toast from 'react-hot-toast';
 
+// ─── Animation Variants ───────────────────────────────────────────────────────
+const pageVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { 
+    opacity: 1, 
+    y: 0,
+    transition: { ease: [0.22, 1, 0.36, 1], duration: 0.6, staggerChildren: 0.1 }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 10 },
+  visible: { opacity: 1, y: 0, transition: { ease: [0.22, 1, 0.36, 1], duration: 0.5 } }
+};
+
 // ─── Success Modal ────────────────────────────────────────────────────────────
-function SuccessModal({ booking, onClose }) {
+function SuccessModal({ booking, onClose, navigate }) {
+  const [copied, setCopied] = useState(false);
+  const [countdown, setCountdown] = useState(3);
+  const secureLink = `${window.location.origin}/manage/${booking.managementToken}`;
+
+  useEffect(() => {
+    // 1. Securely store session for persistent access
+    localStorage.setItem('expertConnect_activeSession', booking.managementToken);
+    window.dispatchEvent(new Event('sessionUpdated'));
+
+    // 2. Start auto-redirect countdown
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          navigate(`/manage/${booking.managementToken}`);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [booking.managementToken, navigate]);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(secureLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
-    <div className="modal-overlay">
-      <div className="modal" style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🎉</div>
-        <h2 style={{ marginBottom: '0.5rem' }}>Booking Confirmed!</h2>
-        <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-          Your session with <strong style={{ color: 'var(--text-primary)' }}>{booking.expertName}</strong> has been booked.
-        </p>
-        <div
-          className="card"
-          style={{ textAlign: 'left', marginBottom: '1.5rem', background: 'var(--color-surface-2)' }}
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="absolute inset-0 bg-premium-900/90 backdrop-blur-md"
+      />
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ ease: [0.22, 1, 0.36, 1], duration: 0.5 }}
+        className="relative w-full max-w-lg surface-1 p-8 md:p-10 text-center overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.8),0_0_40px_rgba(231,200,115,0.1)]"
+      >
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-premium-gold/20 via-premium-gold to-premium-gold/20" />
+        
+        <motion.div 
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ type: 'spring', damping: 15, delay: 0.1 }}
+          className="mx-auto w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mb-6 border border-green-500/20"
         >
-          {[
-            ['📅 Date', new Date(booking.bookingDate).toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })],
-            ['⏰ Time', booking.timeSlot],
-            ['👤 Name', booking.userName],
-            ['📧 Email', booking.userEmail],
-            ['🔖 Status', booking.status],
-          ].map(([label, value]) => (
-            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.4rem 0', borderBottom: '1px solid var(--color-border)', fontSize: '0.875rem' }}>
-              <span style={{ color: 'var(--text-muted)' }}>{label}</span>
-              <span style={{ fontWeight: 600, textTransform: 'capitalize' }}>{value}</span>
+          <CheckCircle2 className="w-8 h-8 text-green-400" />
+        </motion.div>
+        
+        <h2 className="text-3xl font-bold text-white tracking-tight mb-2">Booking Confirmed</h2>
+        <p className="text-premium-text-secondary mb-8 leading-relaxed max-w-sm mx-auto">
+          Your session with <span className="text-white font-medium">{booking.expertName}</span> has been securely scheduled.
+        </p>
+        
+        <div className="surface-2 rounded-xl p-6 text-left mb-8 space-y-4 border border-premium-gold/10">
+          <div className="flex justify-between items-center pb-4 border-b border-premium-border/50">
+            <div className="flex items-center gap-2 text-premium-text-tertiary">
+              <CalendarIcon className="w-4 h-4" />
+              <span className="text-sm">Date</span>
             </div>
-          ))}
+            <span className="text-sm font-medium text-white">
+              {new Date(booking.bookingDate).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2 text-premium-text-tertiary">
+              <Clock className="w-4 h-4" />
+              <span className="text-sm">Time</span>
+            </div>
+            <span className="text-sm font-medium text-white">{booking.timeSlot}</span>
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
-          <button className="btn btn-secondary" onClick={onClose}>Book Another</button>
-          <button className="btn btn-primary" onClick={() => window.location.href = '/my-bookings'}>
-            View My Bookings
+
+        {/* Minimal Backup Link UI */}
+        <div className="mb-8 flex items-center justify-center gap-2">
+          <span className="text-xs font-medium text-premium-text-tertiary">Backup Access Link:</span>
+          <button 
+            onClick={handleCopy}
+            className="text-xs font-semibold text-premium-gold hover:text-white transition-colors"
+          >
+            {copied ? 'Copied to clipboard!' : 'Copy Link'}
           </button>
         </div>
-      </div>
+        
+        {/* Countdown Auto-Redirect */}
+        <div className="flex flex-col items-center justify-center gap-4">
+          <div className="flex items-center gap-3 text-premium-text-secondary">
+            <div className="w-4 h-4 border-2 border-premium-gold/30 border-t-premium-gold rounded-full animate-spin" />
+            <span className="text-sm font-medium">Redirecting to your session portal in {countdown}s...</span>
+          </div>
+          <button 
+            className="text-xs font-medium text-premium-text-tertiary hover:text-white transition-colors underline underline-offset-4 opacity-50 hover:opacity-100" 
+            onClick={onClose}
+          >
+            Cancel automatic redirect
+          </button>
+        </div>
+      </motion.div>
     </div>
   );
 }
@@ -45,10 +133,23 @@ function SuccessModal({ booking, onClose }) {
 // ─── Form Field ───────────────────────────────────────────────────────────────
 function Field({ id, label, error, children }) {
   return (
-    <div className="form-group">
-      <label htmlFor={id} className="form-label">{label}</label>
+    <div className="flex flex-col gap-2">
+      <label htmlFor={id} className="text-sm font-medium text-premium-text-secondary pl-1">
+        {label}
+      </label>
       {children}
-      {error && <span className="form-error">⚠ {error}</span>}
+      <AnimatePresence>
+        {error && (
+          <motion.span 
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="text-xs text-red-400 font-medium pl-1 overflow-hidden"
+          >
+            {error}
+          </motion.span>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -73,12 +174,15 @@ export default function BookingForm() {
   const [loading, setLoading]     = useState(false);
   const [successData, setSuccess] = useState(null);
 
-  // If navigation state is missing (direct URL access), redirect back
   if (!expert || !date || !timeSlot) {
     return (
-      <div style={{ textAlign: 'center', padding: '3rem' }}>
-        <p style={{ color: 'var(--text-muted)', marginBottom: '1rem' }}>No slot selected. Please pick a slot first.</p>
-        <button className="btn btn-primary" onClick={() => navigate('/')}>Browse Experts</button>
+      <div className="w-full max-w-lg mx-auto pt-20 flex flex-col items-center text-center">
+        <div className="w-16 h-16 rounded-full bg-premium-700 flex items-center justify-center mb-6">
+          <CalendarIcon className="w-8 h-8 text-premium-text-tertiary" />
+        </div>
+        <h2 className="text-xl font-medium text-white mb-2">No slot selected</h2>
+        <p className="text-premium-text-secondary mb-8">Please select an expert and choose an available time slot first.</p>
+        <button className="btn-secondary" onClick={() => navigate('/')}>Browse Experts</button>
       </div>
     );
   }
@@ -117,14 +221,16 @@ export default function BookingForm() {
         timeSlot,
       });
       setSuccess(res.data);
-      toast.success('Booking confirmed! 🎉');
     } catch (err) {
-      // 409 = race condition - slot was just taken by someone else
       if (err.message.includes('already booked') || err.message.includes('Slot')) {
-        toast.error('⚡ Slot just got booked! Please choose another time.');
+        toast.error('Slot just got booked! Please choose another time.', {
+          style: { background: '#171717', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }
+        });
         navigate(`/experts/${id}`);
       } else {
-        toast.error(err.message);
+        toast.error(err.message, {
+          style: { background: '#171717', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }
+        });
       }
     } finally {
       setLoading(false);
@@ -137,124 +243,145 @@ export default function BookingForm() {
 
   return (
     <>
-      {successData && (
-        <SuccessModal booking={successData} onClose={() => navigate(`/experts/${id}`)} />
-      )}
+      <AnimatePresence>
+        {successData && (
+          <SuccessModal booking={successData} onClose={() => navigate(`/experts/${id}`)} navigate={navigate} />
+        )}
+      </AnimatePresence>
 
-      <div style={{ maxWidth: 580, margin: '0 auto' }}>
-        <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} style={{ marginBottom: '1.5rem' }}>
-          ← Back
-        </button>
+      <motion.div 
+        variants={pageVariants}
+        initial="hidden"
+        animate="visible"
+        className="w-full max-w-2xl mx-auto pb-20"
+      >
+        <motion.button
+          variants={itemVariants}
+          className="group flex items-center gap-2 text-premium-text-secondary hover:text-white transition-colors duration-300 mb-8"
+          onClick={() => navigate(-1)}
+        >
+          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]" />
+          <span className="text-sm font-medium">Back to Profile</span>
+        </motion.button>
+
+        <motion.div variants={itemVariants} className="mb-10">
+          <h1 className="text-3xl font-bold text-white tracking-tight mb-2">Finalize Booking</h1>
+          <p className="text-premium-text-secondary">Review the session details and enter your information.</p>
+        </motion.div>
 
         {/* ── Booking Summary Card ── */}
-        <div
-          className="card"
-          style={{
-            marginBottom: '1.5rem',
-            background: 'linear-gradient(135deg, rgba(99,102,241,0.1) 0%, rgba(6,182,212,0.05) 100%)',
-            borderColor: 'rgba(99,102,241,0.3)',
-          }}
-        >
-          <h2 style={{ fontSize: '1.1rem', marginBottom: '1rem' }}>📋 Session Summary</h2>
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            <img
-              src={expert.profileImage || `https://api.dicebear.com/8.x/avataaars/svg?seed=${expert.name}`}
-              alt={expert.name}
-              style={{ width: 52, height: 52, borderRadius: '50%', border: '2px solid var(--color-primary)' }}
-            />
-            <div>
-              <p style={{ fontWeight: 700, fontSize: '1rem' }}>{expert.name}</p>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                {expert.category} · ${expert.hourlyRate}/hr
-              </p>
+        <motion.div variants={itemVariants} className="surface-1 p-6 md:p-8 mb-10 relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-br from-premium-gold/5 to-transparent opacity-50" />
+          
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+            <div className="flex items-center gap-5">
+              <img
+                src={expert.profileImage || `https://api.dicebear.com/8.x/avataaars/svg?seed=${expert.name}`}
+                alt={expert.name}
+                className="w-16 h-16 rounded-full border border-premium-border object-cover"
+              />
+              <div>
+                <p className="text-lg font-semibold text-white tracking-tight">{expert.name}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-sm text-premium-text-secondary">{expert.category}</span>
+                  <span className="w-1 h-1 rounded-full bg-premium-700" />
+                  <span className="text-sm text-premium-gold font-medium">${expert.hourlyRate}/hr</span>
+                </div>
+              </div>
             </div>
-            <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-              <p style={{ fontWeight: 700, color: 'var(--color-primary-light)' }}>{timeSlot}</p>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{formattedDate}</p>
+            
+            <div className="hidden md:block w-px h-12 bg-premium-border/50" />
+            
+            <div className="flex flex-col md:items-end">
+              <p className="text-xl font-semibold text-white tracking-tight">{timeSlot}</p>
+              <p className="text-sm text-premium-text-secondary mt-1">{formattedDate}</p>
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* ── Booking Form ── */}
-        <div className="card">
-          <h2 style={{ fontSize: '1.1rem', marginBottom: '1.25rem' }}>👤 Your Details</h2>
-          <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <motion.div variants={itemVariants} className="surface-1 p-6 md:p-10">
+          <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-6">
 
-            <Field id="userName" label="Full Name *" error={errors.userName}>
-              <input
-                id="userName"
-                name="userName"
-                className={`input ${errors.userName ? 'input-error' : ''}`}
-                type="text"
-                placeholder="Rohit Kumar"
-                value={form.userName}
-                onChange={handleChange}
-                autoComplete="name"
-                style={errors.userName ? { borderColor: 'var(--color-error)' } : {}}
-              />
-            </Field>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Field id="userName" label="Full Name" error={errors.userName}>
+                <div className="relative">
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-premium-text-tertiary" />
+                  <input
+                    id="userName"
+                    name="userName"
+                    className={`input-matte pl-11 ${errors.userName ? 'border-red-500/50 focus:border-red-500 focus:ring-red-500/20' : ''}`}
+                    type="text"
+                    placeholder="John Doe"
+                    value={form.userName}
+                    onChange={handleChange}
+                    autoComplete="name"
+                  />
+                </div>
+              </Field>
 
-            <Field id="userEmail" label="Email Address *" error={errors.userEmail}>
-              <input
-                id="userEmail"
-                name="userEmail"
-                className="input"
-                type="email"
-                placeholder="rohit@example.com"
-                value={form.userEmail}
-                onChange={handleChange}
-                autoComplete="email"
-                style={errors.userEmail ? { borderColor: 'var(--color-error)' } : {}}
-              />
-            </Field>
+              <Field id="userEmail" label="Email Address" error={errors.userEmail}>
+                <div className="relative">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-premium-text-tertiary" />
+                  <input
+                    id="userEmail"
+                    name="userEmail"
+                    className={`input-matte pl-11 ${errors.userEmail ? 'border-red-500/50 focus:border-red-500 focus:ring-red-500/20' : ''}`}
+                    type="email"
+                    placeholder="john@example.com"
+                    value={form.userEmail}
+                    onChange={handleChange}
+                    autoComplete="email"
+                  />
+                </div>
+              </Field>
+            </div>
 
-            <Field id="userPhone" label="Phone Number *" error={errors.userPhone}>
+            <Field id="userPhone" label="Phone Number" error={errors.userPhone}>
               <input
                 id="userPhone"
                 name="userPhone"
-                className="input"
+                className={`input-matte ${errors.userPhone ? 'border-red-500/50 focus:border-red-500 focus:ring-red-500/20' : ''}`}
                 type="tel"
-                placeholder="9876543210"
+                placeholder="+1 (555) 000-0000"
                 value={form.userPhone}
                 onChange={handleChange}
                 autoComplete="tel"
                 maxLength={15}
-                style={errors.userPhone ? { borderColor: 'var(--color-error)' } : {}}
               />
             </Field>
 
-            <Field id="notes" label="Notes (optional)">
+            <Field id="notes" label="Preparation Notes (Optional)">
               <textarea
                 id="notes"
                 name="notes"
-                className="input"
-                placeholder="What would you like to discuss in this session?"
+                className="input-matte min-h-[120px] resize-y"
+                placeholder="Briefly describe what you'd like to achieve in this session..."
                 value={form.notes}
                 onChange={handleChange}
-                rows={3}
-                style={{ resize: 'vertical' }}
               />
             </Field>
 
-            <button
-              id="confirm-booking-btn"
-              type="submit"
-              className="btn btn-primary btn-lg"
-              disabled={loading}
-              style={{ marginTop: '0.5rem' }}
-            >
-              {loading ? (
-                <>
-                  <div className="spinner" />
-                  Confirming Booking...
-                </>
-              ) : (
-                '✓ Confirm Booking'
-              )}
-            </button>
+            <div className="pt-4 mt-2 border-t border-premium-border/50">
+              <button
+                id="confirm-booking-btn"
+                type="submit"
+                className="btn-gold w-full py-4 text-base tracking-wide flex justify-center items-center gap-3 relative overflow-hidden"
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-premium-900/30 border-t-premium-900 rounded-full animate-spin" />
+                    <span>Confirming...</span>
+                  </>
+                ) : (
+                  <span>Confirm Booking</span>
+                )}
+              </button>
+            </div>
           </form>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     </>
   );
 }

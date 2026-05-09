@@ -32,14 +32,17 @@ export const fetchExpertById = (id) =>
 export const fetchCategories = () =>
   api.get('/experts/categories').then((r) => r.data);
 
+export const submitExpertApplication = (data) =>
+  api.post('/experts/apply', data).then((r) => r.data);
+
 // ─── Booking APIs ────────────────────────────────────────────────────────────
 export const createBooking = (data) =>
   api.post('/bookings', data).then((r) => r.data);
 
-export const fetchBookingsByEmail = (email, status) =>
-  api.get('/bookings', { params: { email, status } }).then((r) => r.data);
+export const fetchBookingByToken = (token) =>
+  api.get(`/bookings/manage/${token}`).then((r) => r.data);
 
-export const updateBookingStatus = (id, status) =>
-  api.patch(`/bookings/${id}/status`, { status }).then((r) => r.data);
+export const updateBookingStatus = (token, status) =>
+  api.patch(`/bookings/manage/${token}/status`, { status }).then((r) => r.data);
 
 export default api;
