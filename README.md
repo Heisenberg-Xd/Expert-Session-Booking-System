@@ -7,6 +7,15 @@
 
 This project is a production-grade, real-time Expert Session Booking System. It features a robust backend built with Node.js, Express, and PostgreSQL (via Prisma ORM) and also ensuring high concurrency support and race-condition safety. The frontend is a modern React application utilizing Vite for performance and Socket.io for real-time availability updates.
 
+## ✨ What's New
+
+We recently completed a major architectural overhaul and feature expansion:
+* **Premium Expert Marketplace:** A completely redesigned aesthetic featuring high-fidelity expert profiles, trust-building metrics, and a sophisticated UI.
+* **Expert Onboarding Flow:** A seamless, multi-step application process for new experts to join the platform, establishing institutional credibility.
+* **Production-Ready Architecture:** Complete migration to centralized environment variables (`VITE_API_URL`), making the frontend fully deployable to Vercel while talking to the Render backend.
+* **Timezone-Proof Booking Engine:** A rebuilt date normalization system that uses strict UTC midnight timestamps across the database schema, Prisma queries, and API validators, permanently solving false 409 conflict errors caused by cross-timezone server mismatches.
+* **Diagnostic Tooling:** Added `reset-and-reseed` script for safe database maintenance and real-time slot checking endpoints.
+
 ## Features
 
 * Real-time Slot Updates
